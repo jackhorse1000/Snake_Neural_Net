@@ -1,4 +1,18 @@
-import java.awt.Color;
+
+import jxl.Workbook;
+import jxl.write.*;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.Label;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -9,6 +23,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.IOException;
 
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
@@ -22,10 +37,17 @@ public class SnakeGame extends JPanel implements ActionListener {
     private final int ALL_DOTS = 900;
     private final int RANDOM_POS = 29;
     private final int DELAY = 140;
+    private final int TERMINATION_STEPS = 400;
     
     //store the x and y coordinates of the snake
     private final int x[] = new int[ALL_DOTS];
     private final int y[] = new int[ALL_DOTS];
+    
+    //min and maxes for normailization
+    private static double maxX;
+    private static double maxY;
+    private static double minX;
+    private static double minY;
     
     //global variables
     private boolean inGame =true;
@@ -44,6 +66,33 @@ public class SnakeGame extends JPanel implements ActionListener {
     private Image apple;
     private Image head;
     
+    //Below are global variables for neural nets (testing)
+    
+   
+    //statistics
+    public static int snakeLength;
+    public static int maxSnakeLength;
+    public static int stepsTaken;
+    public static int iterationCounter;
+    public static int applesEaten;
+    public static int stepsTakenSinceLastFood; 
+   
+    public static int stepsUntilTermination = 1000;
+    
+    public static int noInputs = 8;
+    public static int noHidden = 7;
+    public static int noOutput = 4;
+    
+    //population size
+    private int popSize = 50;
+    
+    
+    public static SnakeGame snakeGame;
+    public static boolean btnStoppedPushed;
+    private static Console console;
+    
+    
+    
     //load images
     private void loadImages() {
 
@@ -57,23 +106,247 @@ public class SnakeGame extends JPanel implements ActionListener {
         head = headIc.getImage();
     }
     
-    public SnakeGame(){
+    
+    
+    public SnakeGame() throws IOException, WriteException{
+        
+        btnStoppedPushed = false;
+        
+        inGame = true;
+        snakeLength = 3;
         
         addKeyListener(new TAdapter());
         setBackground(Color.black);
         setFocusable(true);
-        
         setPreferredSize(new Dimension(B_WIDTH, B_HEIGHT));
-        loadImages();
-        initGame();
         
+        iterationCounter = 0;
+        applesEaten = 0;
+        stepsTaken = 0;
+        stepsTakenSinceLastFood = 0;
+
+        loadImages();
+        initGame(); 
     }
     
+    //used for the main class
+    public static SnakeGame getClassInstance()
+    {
+        if (snakeGame == null)
+        {
+            try {
+                //console lets us see the result from each iteration
+                snakeGame = new SnakeGame();
+                console = new Console();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (WriteException e) {
+                e.printStackTrace();
+            }
+            return snakeGame;
+        }
+        return snakeGame;
+}
+    public void runGame() throws InterruptedException{
+        //Initialise the population
+        Population population = new Population(popSize);
+        
+        //Initialise the Neural Net when I make it
+        
+        
+        Chromosone curChromosone; //current Chromosone we are working with
+        iterationCounter = 0; 
+        maxSnakeLength = 3; //starts with length 3.
+        
+        //training the snake for 200000 iterations
+        while(iterationCounter < 400001 && !btnStoppedPushed){
+            
+            //get the current chromosone
+            curChromosone = population.getCurChromosone();
+            
+            //set the weights of the neural net here
+            NeuralNetwork NN = new NeuralNetwork();
+            
+            
+            //reset statistics of each chromosone
+
+            snakeLength = 3;
+            applesEaten = 0;
+            
+            //this runs the game
+            while(inGame){
+                
+                if(iterationCounter % 20000 == 0 || snakeLength >5 || this.stepsTaken >200){
+                    TimeUnit.MILLISECONDS.sleep(100);
+                }
+                
+                //get the state of the game for the neural net
+                double[] neuralNetInputs = getInputs(); 
+                //get the moves from the neural net
+                
+                NN.setWeightsOfNN(curChromosone.getIHWeights(), curChromosone.getHOWeights());
+                //make the move the neural net wants you to go
+                int currentOppositeDir = 0;
+                if (leftDirection)
+                    currentOppositeDir = 4;
+                else if (rightDirection)
+                    currentOppositeDir = 2;
+                else if (upDirection)
+                    currentOppositeDir = 3;
+                else if (downDirection)
+                    currentOppositeDir = 1;
+                
+                double[] inputs = getInputs();
+                
+                int move = NN.getNextMove(currentOppositeDir, inputs);
+                manageMove(move); 
+                
+                move(); //move the snake
+                
+         
+                //We have made are move from the neural net
+                checkApple();
+                
+                //terminate game if no progress is made
+                if (stepsTakenSinceLastFood > this.TERMINATION_STEPS)
+                {
+                    inGame = false;
+                    curChromosone.setTerminated(true);
+                }
+                
+                //check if the snake has hit any obstacle
+                checkCollision();
+                
+                //show what it happening ever mod x amount of times
+                if(iterationCounter % 20000 == 0 || snakeLength > 5 ||this.stepsTaken>200){
+                    repaint();
+                }
+                
+            }
+            
+            curChromosone.setFitness(snakeLength, stepsTaken);
+            System.out.println("Iteration: " + iterationCounter + " max snake: " + SnakeGame.snakeLength);
+            
+            if (snakeLength > maxSnakeLength)
+            {
+                maxSnakeLength = snakeLength;
+                console.addToConsole("New Highscoore of: " + maxSnakeLength + ", in iteration: " + iterationCounter);
+            }
+            
+            iterationCounter++;
+            
+            if (iterationCounter % popSize == 0){
+                population.Train();
+            }
+            
+            population.incrementCurChromosone();
+            
+            initGame();    
+        }
+        
+        console.addToConsole("Game Stopped!");
+    }
+    
+    private void manageMove(int move){
+        //set the new direction
+        if(move == 0 && !downDirection){
+            upDirection = true;
+            downDirection = false;
+            leftDirection = false;
+            rightDirection = false;
+        }else if(move == 1 && !rightDirection){
+            upDirection = false;
+            downDirection = false;
+            leftDirection = true;
+            rightDirection = false;   
+        }else if(move == 2 && !upDirection){
+            upDirection = false;
+            downDirection = true;
+            leftDirection = false;
+            rightDirection = false;
+        }else if(move == 3 && !leftDirection){
+            upDirection = false;
+            downDirection = false;
+            leftDirection = false;
+            rightDirection = true;
+        }
+    }
+    
+    //these are the values that we need to get an output from the Neural Net
+    private double[] getInputs() {
+        double[] inputs = new double[8];
+        inputs[0] = x[0];
+        inputs[1] = y[0];
+        inputs[2] = apple_x;
+        inputs[3] = apple_y;
+        inputs[4] = 1.0;
+        inputs[5] = 1.0;
+        inputs[6] = 1.0;
+        inputs[7] = 1.0;
+        if(upDirection){
+            inputs[4] = 0.0;
+        }
+        if(leftDirection){
+            inputs[5] = 0.0;
+        }
+        if(downDirection){
+            inputs[6] = 0.0;
+        }
+        if(rightDirection){
+            inputs[7] = 0.0;
+        }                        
+        
+        return inputs;
+    }
+
+    private void normalizeInputs(double[] inputs){
+        //need to normalise data
+         maxX = -1;
+         maxY = -1;
+         minX = 99999;
+         minY = 99999;       
+        
+         for(int i =0; i<=9; i++){
+             double numerator;
+             double demoninator;
+             double normalized;
+             
+             if (i % 2 == 0){
+                 numerator = inputs[i] - minX;
+                 demoninator = maxX - minX;
+                 normalized = numerator / demoninator;
+                 inputs[i] = normalized;
+             }else{
+                 numerator = inputs[i] - minY;
+                 demoninator = maxY - minY;
+                 normalized = numerator / demoninator;
+                 inputs[i] = normalized;
+             }
+         }
+        
+    }
+
+
+
+
+
+
+
+
+
     //Initialise game
     private void initGame(){
         
         //initial length of snake
         dots = 3;
+        inGame= true;
+        leftDirection = false;
+        rightDirection = true;
+        upDirection = false;
+        downDirection = false;
+        stepsTaken =0;
+        SnakeGame.stepsTakenSinceLastFood = 0;
+        
         
         //populate the snake
         for(int z =0; z<dots; z++){
@@ -81,6 +354,7 @@ public class SnakeGame extends JPanel implements ActionListener {
             y[z]= 50;      
         }
         
+        //update the positions for the Neural Net
         //place the apple
         placeApple();
         
@@ -122,13 +396,13 @@ public class SnakeGame extends JPanel implements ActionListener {
     private void gameOver(Graphics g) {
         // TODO Auto-generated method stub
         
-        String msg = "Game Over";
-        Font small = new Font("Helvetica", Font.BOLD, 14);
-        FontMetrics metr = getFontMetrics(small);
-
-        g.setColor(Color.white);
-        g.setFont(small);
-        g.drawString(msg, (B_WIDTH - metr.stringWidth(msg)) / 2, B_HEIGHT / 2);
+//        String msg = "Game Over";
+//        Font small = new Font("Helvetica", Font.BOLD, 14);
+//        FontMetrics metr = getFontMetrics(small);
+//
+//        g.setColor(Color.white);
+//        g.setFont(small);
+//        g.drawString(msg, (B_WIDTH - metr.stringWidth(msg)) / 2, B_HEIGHT / 2);
         
     }
 
@@ -168,8 +442,20 @@ public class SnakeGame extends JPanel implements ActionListener {
             y[0] +=DOT_SIZE;
         }
         
+        stepsTaken++;
+        SnakeGame.stepsTakenSinceLastFood++;
+        //updateSnakeInputs();
+        
     } 
     
+    //updates the model of the game that the snakes can see
+    private void updateSnakeInputs() {
+        
+        
+    }
+
+
+
     private void checkCollision(){
         
         //checks if the snake has hit the wall or itself
@@ -206,8 +492,9 @@ public class SnakeGame extends JPanel implements ActionListener {
         if(x[0]== apple_x && y[0] == apple_y){
             //add something else here for NN to track score
             //add score
-            //
             
+            SnakeGame.stepsTakenSinceLastFood = 0;
+            snakeLength++;
             dots++;
             placeApple();
         }

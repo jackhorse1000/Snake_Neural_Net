@@ -1,10 +1,22 @@
 import java.awt.EventQueue;
+import java.io.IOException;
+
 import javax.swing.JFrame;
+
+import jxl.write.WriteException;
 
 public class PlaySnake extends JFrame {
     
     public PlaySnake(){
-        add(new SnakeGame());
+        try {
+            add(new SnakeGame());
+        } catch (WriteException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
         
         setResizable(false);
         pack();
