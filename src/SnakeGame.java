@@ -37,7 +37,7 @@ public class SnakeGame extends JPanel implements ActionListener {
     private final int ALL_DOTS = 900;
     private final int RANDOM_POS = 29;
     private final int DELAY = 140;
-    private final int TERMINATION_STEPS = 400;
+    private final int TERMINATION_STEPS =100;
     
     //store the x and y coordinates of the snake
     private final int x[] = new int[ALL_DOTS];
@@ -60,6 +60,11 @@ public class SnakeGame extends JPanel implements ActionListener {
     private boolean upDirection =false;
     private boolean downDirection =false;
     
+    public static boolean frontFree = false;
+    public static boolean rightFree = false;
+    public static boolean leftFree = false;
+    
+    
     
     //image resources
     private Image body;
@@ -77,14 +82,13 @@ public class SnakeGame extends JPanel implements ActionListener {
     public static int applesEaten;
     public static int stepsTakenSinceLastFood; 
    
-    public static int stepsUntilTermination = 1000;
     
-    public static int noInputs = 8;
+    public static int noInputs = 14;
     public static int noHidden = 7;
     public static int noOutput = 4;
     
     //population size
-    private int popSize = 50;
+    private int popSize = 500;
     
     
     public static SnakeGame snakeGame;
@@ -159,7 +163,7 @@ public class SnakeGame extends JPanel implements ActionListener {
         maxSnakeLength = 3; //starts with length 3.
         
         //training the snake for 200000 iterations
-        while(iterationCounter < 400001 && !btnStoppedPushed){
+        while(!btnStoppedPushed){
             
             //get the current chromosone
             curChromosone = population.getCurChromosone();
@@ -176,7 +180,7 @@ public class SnakeGame extends JPanel implements ActionListener {
             //this runs the game
             while(inGame){
                 
-                if(iterationCounter % 20000 == 0 || snakeLength >5 || this.stepsTaken >200){
+                if(iterationCounter % 5000 == 0 || snakeLength >30){
                     TimeUnit.MILLISECONDS.sleep(100);
                 }
                 
@@ -207,6 +211,9 @@ public class SnakeGame extends JPanel implements ActionListener {
                 //We have made are move from the neural net
                 checkApple();
                 
+                //check which direction is free for the snake to move and update the weights
+                checkFreeDirections();
+                
                 //terminate game if no progress is made
                 if (stepsTakenSinceLastFood > this.TERMINATION_STEPS)
                 {
@@ -218,7 +225,7 @@ public class SnakeGame extends JPanel implements ActionListener {
                 checkCollision();
                 
                 //show what it happening ever mod x amount of times
-                if(iterationCounter % 20000 == 0 || snakeLength > 5 ||this.stepsTaken>200){
+                if(iterationCounter % 5000 == 0 || snakeLength > 30){
                     repaint();
                 }
                 
@@ -247,6 +254,69 @@ public class SnakeGame extends JPanel implements ActionListener {
         console.addToConsole("Game Stopped!");
     }
     
+    //check all possible cases for death and make sure that you set it to false
+    private void checkFreeDirections() {
+        frontFree = true;
+        rightFree = true;
+        leftFree = true; 
+        
+        //left side and going down
+        if(x[0] == 1 &&  downDirection){
+            rightFree = false;
+        }
+        //bottom side and going left
+        if (y[0] == 1 && leftDirection ){
+            leftFree = false;
+        }
+        //right side and going up
+        if (x[0] == B_WIDTH-1 && upDirection){
+            rightFree = false;
+        }
+        
+        //top side and going right
+        if (y[0] == B_HEIGHT-1 && rightDirection ){
+            leftFree = false;
+        }
+        
+        //left side and going up
+        if(x[0] == 1 &&  upDirection){
+            leftFree = false;
+        }
+        //bottom side and going right
+        if (y[0] == 1 && rightDirection ){
+            rightFree = false;
+        }
+        //right side and going down
+        if (x[0] == B_WIDTH-1 && downDirection){
+            leftFree = false;
+        }
+            
+        //top side and going up
+        if (y[0] == B_HEIGHT-1 && upDirection ){
+            frontFree = false;
+        }
+        
+        //left side and going left
+        if(x[0] == 1 &&  leftDirection){
+            frontFree = false;
+        }
+        //bottom side and going down
+        if (y[0] == 1 && downDirection ){
+            frontFree = false;
+        }
+        //right side and going right
+        if (x[0] == B_WIDTH-1 && rightDirection){
+            frontFree = false;
+        }
+        
+        
+        
+        
+        
+    }
+
+
+
     private void manageMove(int move){
         //set the new direction
         if(move == 0 && !downDirection){
@@ -274,7 +344,7 @@ public class SnakeGame extends JPanel implements ActionListener {
     
     //these are the values that we need to get an output from the Neural Net
     private double[] getInputs() {
-        double[] inputs = new double[8];
+        double[] inputs = new double[14];
         inputs[0] = x[0];
         inputs[1] = y[0];
         inputs[2] = apple_x;
@@ -283,6 +353,10 @@ public class SnakeGame extends JPanel implements ActionListener {
         inputs[5] = 1.0;
         inputs[6] = 1.0;
         inputs[7] = 1.0;
+        double distToFoodX = Math.abs(x[0] - apple_x);
+        inputs[8]  = distToFoodX;
+        double distToFoodY = Math.abs(y[0] - apple_y);
+        inputs[9]  = distToFoodY;
         if(upDirection){
             inputs[4] = 0.0;
         }
@@ -294,7 +368,24 @@ public class SnakeGame extends JPanel implements ActionListener {
         }
         if(rightDirection){
             inputs[7] = 0.0;
-        }                        
+        }
+        if(leftFree){
+            inputs[10] = 1.0; 
+        }
+        if(frontFree){
+            inputs[11] = 1.0; 
+        }
+        if(rightFree){
+            inputs[12] = 1.0; 
+        }
+        //bias
+        inputs[13] = -1.0;
+        
+        
+        
+                
+                
+        
         
         return inputs;
     }
@@ -447,12 +538,6 @@ public class SnakeGame extends JPanel implements ActionListener {
         //updateSnakeInputs();
         
     } 
-    
-    //updates the model of the game that the snakes can see
-    private void updateSnakeInputs() {
-        
-        
-    }
 
 
 
