@@ -89,18 +89,11 @@ public class Chromosone {
         
         double output = 0.0;
         
-        //rewarding the snake more for not being terminated and for getting to a bigger length
-        //if the snake had to be killed
-//        if(terminated){
-//            output = (numberSteps/4) + snakeLength * 10000;
-//        }else{
-//            output = (numberSteps*4) + snakeLength * 10000;
-//        }
-        
+        //snake gets a higher fitness if it was not terminated
         if(terminated){
-            output = numberSteps/4 + snakeLength * 10000;
+            output = numberSteps/4 + snakeLength * 100;
         }else{
-            output = numberSteps*4 + snakeLength * 10000;
+            output = numberSteps + snakeLength * 100;
         }
 
         
