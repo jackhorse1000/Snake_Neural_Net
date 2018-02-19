@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Random;
 
 
@@ -6,15 +8,18 @@ import java.util.Random;
 public class Population {
     
     private int populationSize = 50;
-    private int generation; 
+    private int hallOfFameSize, tournamentSize; 
     private ArrayList<Chromosone> chromosones;
     private Chromosone fittest;
     private Chromosone secondFittest;
-    private int indexLeastFit;
     
     private int curChromosone;
     
-    private int mutationRate = 2;
+    //lower means more mutation
+    private int mutationRate = 5;
+    
+    //amount of change when you mutate
+    private int mutationWeight= 10;
     
     
    
@@ -28,95 +33,97 @@ public class Population {
         }
         
         curChromosone = 0;
+        hallOfFameSize = 2;
+        tournamentSize = 3; 
+        
 
     }
     
-    //gets the first fittest Chromosone
-    public void getfittest() {
-        double maxFit =0;
-        Chromosone fittest = null;
-        for (int i = 0; i< chromosones.size();i++){
-            if(maxFit <= chromosones.get(i).getFitness()){
-                maxFit = chromosones.get(i).getFitness();
-                fittest = chromosones.get(i);
-            }
-        }
-        
-        if (fittest == null){
-            System.out.println("The fittest was not found and is null"); 
-            }
-        
-        this.fittest = fittest;
-    }
-    
-    //gets the second fittest Chromosone
-    public void getSecondfittest() {
-        int maxFit1 = 0;
-        int maxFit2 = 0;
-        Chromosone secondFittest = null;
-        for (int i = 0; i< chromosones.size();i++){
-            if((maxFit1 <= chromosones.get(i).getFitness())){
-                maxFit2 = maxFit1; 
-                maxFit1 = i;
-            } else if (chromosones.get(i).getFitness() > chromosones.get(maxFit2).getFitness()){
-                maxFit2 =i;
-            }
-        }
-        
-        secondFittest = chromosones.get(maxFit2);
-        
-        if (fittest == null){
-            System.out.println("The second fittest was not found and is null"); 
-            }
-        
-        this.secondFittest = secondFittest;
-    }
-    
-    public void getLeastFitChromosone(){
-        int minFit = 1000000;
-        for( int i =0; i<chromosones.size(); i++){
-            if(minFit >= chromosones.get(i).getFitness()){
-                minFit = i;
-            }
-        }
-        
-        this.indexLeastFit = minFit;
-        
-    }
+//    //gets the first fittest Chromosone
+//    public void getfittest() {
+//        double maxFit =0;
+//        Chromosone fittest = null;
+//        for (int i = 0; i< chromosones.size();i++){
+//            if(maxFit <= chromosones.get(i).getFitness()){
+//                maxFit = chromosones.get(i).getFitness();
+//                fittest = chromosones.get(i);
+//            }
+//        }
+//        
+//        if (fittest == null){
+//            System.out.println("The fittest was not found and is null"); 
+//            }
+//        
+//        this.fittest = fittest;
+//    }
+//    
+//    //gets the second fittest Chromosone
+//    public void getSecondfittest() {
+//        int maxFit1 = 0;
+//        int maxFit2 = 0;
+//        Chromosone secondFittest = null;
+//        for (int i = 0; i< chromosones.size();i++){
+//            if((maxFit1 <= chromosones.get(i).getFitness())){
+//                maxFit2 = maxFit1; 
+//                maxFit1 = i;
+//            } else if (chromosones.get(i).getFitness() > chromosones.get(maxFit2).getFitness()){
+//                maxFit2 =i;
+//            }
+//        }
+//        
+//        secondFittest = chromosones.get(maxFit2);
+//        
+//        if (fittest == null){
+//            System.out.println("The second fittest was not found and is null"); 
+//            }
+//        
+//        this.secondFittest = secondFittest;
+//    }
+//    
+//    public void getLeastFitChromosone(){
+//        int minFit = 1000000;
+//        for( int i =0; i<chromosones.size(); i++){
+//            if(minFit >= chromosones.get(i).getFitness()){
+//                minFit = i;
+//            }
+//        }
+//        
+//
+//        
+//    }
     
     public void Train(){
         
-//        Collections.sort(chromosones, comp);
-//        ArrayList<Chromosone> nextGen = new ArrayList<>(); //this will eventually be the new population of chromozones.
-//        for (int i = 0; i< hallOfFameSize; i++) //let the first fittest individuals take the first slots to the halloffamesize counter.
-//        {
-//            nextGen.add(chromosones.get(i).clone());
-//        }
+        //sort to find the fittest chromosones      
+        Comparator<Chromosone> comp = new Comparator<Chromosone>(){
+            @Override
+            public int compare(Chromosone c1, Chromosone c2)
+            {
+                if (c1.getFitness() < c2.getFitness())
+                    return 1;
+                if (c1.getFitness() > c2.getFitness())
+                    return -1;
+                return 0;
+            }
+        };
         
-        //this will be the next population/generation of chromosones
-        //ArrayList<Chromosone> nextGen = new ArrayList<>();
-        //let the first fittest individuals take the first slots to the halloffamesize counter.
-//        for (int i = 0; i< hallOfFameSize; i++) 
-//        {
-//            nextGen.add(chromosones.get(i).clone());
-//        }
         
-        //get the fittest and second fittest to crossover
-        this.getfittest();
-        this.getSecondfittest();
+        Collections.sort(chromosones, comp);
+        
+        //this will be the next generation of chromosones
+        ArrayList<Chromosone> nextGen = new ArrayList<>();   
+        
+        //add the fittest chromosones to the next gerneration
+        for(int i =0; i<this.hallOfFameSize; i++){
+            nextGen.add(chromosones.get(i));
+        }
         
 
         
-        //this will be the next generation of chromosones
-        ArrayList<Chromosone> nextGen = new ArrayList<>(); 
-        
-        //previous 2 best will get the first place in the next generation
-        nextGen.add(this.fittest);
-        nextGen.add(this.secondFittest);
-        
         //add new mutations of the 2 fittest to the next generation
         for (int i = 0; i< populationSize-2; i++) {
-            Chromosone crossoverChromosone = crossover(fittest, secondFittest); 
+            //Use the fittest 2 chromosones to mutate the and add to the next generation
+            Chromosone crossoverChromosone = crossover(nextGen.get(0), nextGen.get(1)); 
             
             //would like to mutate the Chromosone
             Chromosone mutate = mutate(crossoverChromosone);
@@ -133,19 +140,20 @@ public class Population {
         double mutateWeight;
         
         
+        
         //for weights input to hidden
         for (int i =0; i < SnakeGame.noInputs; i++){
             for(int j=0; j < SnakeGame.noHidden; j++){
                 //use the mutation rate to deside how often I would like
                 //to mutate the chromosone
                 //lower mutation rate number the more we mutate
-                if(r.nextInt()% mutationRate ==0){
+                if((r.nextInt(this.populationSize)) % mutationRate ==0){
                 
                 //50% chance of being either mutation
-                if(r.nextInt()%2 == 0){
-                    mutateWeight = crossoverChromosone.getIHWeights()[i][j] + r.nextDouble() * 200;
+                if(r.nextInt(this.populationSize)%2 == 0){
+                    mutateWeight = crossoverChromosone.getIHWeights()[i][j] + r.nextDouble() * r.nextInt(mutationWeight) ;
                 }else{
-                    mutateWeight = crossoverChromosone.getIHWeights()[i][j] + r.nextDouble() * (-200);
+                    mutateWeight = crossoverChromosone.getIHWeights()[i][j] + r.nextDouble() * (-r.nextInt(mutationWeight));
                 }
                 //set the weight of the mutation
                 crossoverChromosone.IHWeights[i][j] = mutateWeight;
@@ -165,10 +173,10 @@ public class Population {
                 if(r.nextInt()% mutationRate ==0){
                 
                 //50% chance of being either mutation
-                if(r.nextInt()%2 == 0){
-                    mutateWeight = crossoverChromosone.getHOWeights()[i][j] + r.nextDouble() * 200;
+                if((r.nextInt(this.populationSize))%2 == 0){
+                    mutateWeight = crossoverChromosone.getHOWeights()[i][j] + r.nextDouble() * r.nextInt(mutationWeight) ;
                 }else{
-                    mutateWeight = crossoverChromosone.getHOWeights()[i][j] + r.nextDouble() * (-200);
+                    mutateWeight = crossoverChromosone.getHOWeights()[i][j] + r.nextDouble() * (-r.nextInt(mutationWeight));
                 }
                 //set the weight of the mutation
                 crossoverChromosone.HOWeights[i][j] = mutateWeight;
