@@ -31,12 +31,17 @@ import javax.swing.Timer;
 
 public class SnakeGame extends JPanel implements ActionListener {
     
+    //board details
     private final int B_WIDTH = 300;
     private final int B_HEIGHT = 300;
     private final int DOT_SIZE = 10;
     private final int ALL_DOTS = 900;
     private final int RANDOM_POS = 29;
+    
+    //used when user wants to play the game
     private final int DELAY = 140;
+    
+    //waiting limit before termination
     private final int TERMINATION_STEPS =100;
     
     //store the x and y coordinates of the snake
@@ -49,7 +54,8 @@ public class SnakeGame extends JPanel implements ActionListener {
     private static double minX;
     private static double minY;
     
-    //global variables
+    
+    //global variables for snake
     private boolean inGame =true;
     private int dots;
     private Timer timer;
@@ -60,6 +66,8 @@ public class SnakeGame extends JPanel implements ActionListener {
     private boolean upDirection =false;
     private boolean downDirection =false;
     
+    
+    //used for inputs to the neural net to see which direction is free for the snake to move into
     public static boolean frontFree = false;
     public static boolean rightFree = false;
     public static boolean leftFree = false;
@@ -71,10 +79,10 @@ public class SnakeGame extends JPanel implements ActionListener {
     private Image apple;
     private Image head;
     
-    //Below are global variables for neural nets (testing)
+  
     
    
-    //statistics
+    //statistics for fitness in chromosone and user information
     public static int snakeLength;
     public static int maxSnakeLength;
     public static int stepsTaken;
@@ -83,15 +91,20 @@ public class SnakeGame extends JPanel implements ActionListener {
     public static int stepsTakenSinceLastFood; 
    
     
+    //number of nodes for the neural net
     public static int noInputs = 14;
     public static int noHidden = 7;
     public static int noOutput = 4;
+    
     
     //population size
     private int popSize = 500;
     
     
+    //instance of the snake game
     public static SnakeGame snakeGame;
+    
+    //to terminate the learner
     public static boolean btnStoppedPushed;
     private static Console console;
     
@@ -112,6 +125,7 @@ public class SnakeGame extends JPanel implements ActionListener {
     
     
     
+    //intialise the neural net learner
     public SnakeGame() throws IOException, WriteException{
         
         btnStoppedPushed = false;
@@ -133,6 +147,7 @@ public class SnakeGame extends JPanel implements ActionListener {
         initGame(); 
     }
     
+    
     //used for the main class
     public static SnakeGame getClassInstance()
     {
@@ -151,44 +166,41 @@ public class SnakeGame extends JPanel implements ActionListener {
         }
         return snakeGame;
 }
+    
+    
     public void runGame() throws InterruptedException{
         //Initialise the population
         Population population = new Population(popSize);
-        
-        //Initialise the Neural Net when I make it
-        
-        
+           
         Chromosone curChromosone; //current Chromosone we are working with
-        iterationCounter = 0; 
+        iterationCounter = 0; //learning iteration
         maxSnakeLength = 3; //starts with length 3.
         
-        //training the snake for 200000 iterations
+        //training the snake until the stop button is pushed
         while(!btnStoppedPushed){
             
             //get the current chromosone
             curChromosone = population.getCurChromosone();
             
-            //set the weights of the neural net here
+            //initialise the neural net
             NeuralNetwork NN = new NeuralNetwork();
             
             
             //reset statistics of each chromosone
-
             snakeLength = 3;
             applesEaten = 0;
             
             //this runs the game
             while(inGame){
                 
-                if(iterationCounter % 5000 == 0 || snakeLength >30){
+                //slow down the game
+                if(iterationCounter % 5000 == 0 || snakeLength >25){
                     TimeUnit.MILLISECONDS.sleep(100);
                 }
                 
-                //get the state of the game for the neural net
-                double[] neuralNetInputs = getInputs(); 
-                //get the moves from the neural net
-                
+                //get the weights for the neural net
                 NN.setWeightsOfNN(curChromosone.getIHWeights(), curChromosone.getHOWeights());
+                
                 //make the move the neural net wants you to go
                 int currentOppositeDir = 0;
                 if (leftDirection)
@@ -200,21 +212,24 @@ public class SnakeGame extends JPanel implements ActionListener {
                 else if (downDirection)
                     currentOppositeDir = 1;
                 
-                double[] inputs = getInputs();
+                //check which direction is free for the snake to move and update the weights
+                checkFreeDirections();
                 
+                //get the state of the game so the neural net can make a decision
+                double[] inputs = getInputs();
+
+                //get the move from the neural net
                 int move = NN.getNextMove(currentOppositeDir, inputs);
+                
+                //set up the move the neural net has decided 
                 manageMove(move); 
                 
                 move(); //move the snake
-                
          
                 //We have made are move from the neural net
                 checkApple();
                 
-                //check which direction is free for the snake to move and update the weights
-                checkFreeDirections();
-                
-                //terminate game if no progress is made
+                //terminate game if no progress is made in finding the apple
                 if (stepsTakenSinceLastFood > this.TERMINATION_STEPS)
                 {
                     inGame = false;
@@ -224,33 +239,42 @@ public class SnakeGame extends JPanel implements ActionListener {
                 //check if the snake has hit any obstacle
                 checkCollision();
                 
-                //show what it happening ever mod x amount of times
-                if(iterationCounter % 5000 == 0 || snakeLength > 30){
+                //show what it happening ever mod x amount of times or if the length is greater than 30
+                if(iterationCounter % 5000 == 0 || snakeLength > 25){
                     repaint();
                 }
                 
             }
             
+            //set the fitness for the chromosone
             curChromosone.setFitness(snakeLength, stepsTaken);
+            
+            //print out the details for the user
             System.out.println("Iteration: " + iterationCounter + " max snake: " + SnakeGame.snakeLength);
             
+            //update when the snake has got a new max length
             if (snakeLength > maxSnakeLength)
             {
                 maxSnakeLength = snakeLength;
                 console.addToConsole("New Highscoore of: " + maxSnakeLength + ", in iteration: " + iterationCounter);
             }
             
+            //increment the counter
             iterationCounter++;
             
+            //train the next generation every time you have went through the population
             if (iterationCounter % popSize == 0){
                 population.Train();
             }
             
+            //increment the chromosone you are testing
             population.incrementCurChromosone();
             
+            //initialise game
             initGame();    
         }
         
+        //game is stopped
         console.addToConsole("Game Stopped!");
     }
     
@@ -308,11 +332,7 @@ public class SnakeGame extends JPanel implements ActionListener {
         if (x[0] == B_WIDTH-1 && rightDirection){
             frontFree = false;
         }
-        
-        
-        
-        
-        
+  
     }
 
 
